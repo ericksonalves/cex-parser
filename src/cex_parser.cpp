@@ -62,24 +62,30 @@ cex_parser::~cex_parser()
 const std::string cex_parser::get_interleaving() const
 {
     std::vector<int> threads;
+    std::vector<int> full_trace_threads;
     std::vector<int> lines;
+    std::vector<int> full_trace_lines;
     int last_thread_id = 0;
+    int full_trace_last_thread_id = 0;
     int last_line = -1;
     for (const state& st : m_states) {
         for (const std::string& id : st.id()) {
+            if (std::regex_match(id, regular_expressions::is_state)) {
+                int current_thread_id = utils::char_to_int(id[id.size() - 1]);
+                full_trace_threads.push_back(full_trace_last_thread_id);
+                full_trace_lines.push_back(last_line);
+                full_trace_last_thread_id = current_thread_id;
+                if (current_thread_id != last_thread_id) {
+                     threads.push_back(last_thread_id);
+                     lines.push_back(last_line);
+                     last_thread_id = current_thread_id;
+                }
+            }
             if (id.find(m_file_under_verification) != std::string::npos) {
                 size_t start = id.find(constants::line) + 5;
                 size_t end = id.find(" ", start);
                 std::string current_line = id.substr(start, end - start);
                 last_line = std::stoi(current_line);
-            }
-            if (std::regex_match(id, regular_expressions::is_state)) {
-                int current_thread_id = utils::char_to_int(id[id.size() - 1]);
-                if (current_thread_id != last_thread_id) {
-                    threads.push_back(last_thread_id);
-                    lines.push_back(last_line);
-                    last_thread_id = current_thread_id;
-                }
             }
         }
     }
@@ -90,5 +96,10 @@ const std::string cex_parser::get_interleaving() const
     output << "I: ";
     for (unsigned int i = 0; i != threads.size(); ++i)
         output << utils::format_result(threads[i], lines[i], i != threads.size() - 1);
+    output << std::endl;
+    output << "Full trace" << std::endl;
+    for (unsigned int i = 0; i != full_trace_threads.size(); ++i)
+        output <<
+        utils::format_result(full_trace_threads[i], full_trace_lines[i], i != full_trace_threads.size() - 1);
     return output.str();
 }
